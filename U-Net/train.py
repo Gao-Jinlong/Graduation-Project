@@ -6,7 +6,7 @@ from keras.optimizers import adam_v2 as Adam
 
 from nets.unet import Unet
 from nets.unet_training import(CE, Focal_loss, dice_loss_with_CE, dice_loss_with_Focal_Loss)
-from utils.callbacks import ExponentDecyScheduler, LossHistory
+from utils.callbacks import ExponentDecayScheduler, LossHistory
 from utils.dataloader import UnetDataset
 from utils.utils_metrics import Iou_soure, f_score
 
