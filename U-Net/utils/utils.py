@@ -1,5 +1,5 @@
 import numpy as np
-import PIL import Image
+from PIL import Image
 
 #-------------------------------------------------------------------#
 #   将图像转换成RGB图像，防止灰度图在预测时报错。
