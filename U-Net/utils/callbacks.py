@@ -24,7 +24,7 @@ class LossHistory(keras.callbacks.Callback):
             f.write("\n")
 
         if self.val_loss_flag:
-            self.val_loss_append(logs.get('val_loss'))
+            self.val_loss.append(logs.get('val_loss'))
             with open(os.path.join(self.save_path, "epoch_val_loss_" + str(self.time_str) + ".txt"), 'a') as f:
                 f.write(str(logs.get('val_loss')))
                 f.write("\n")
@@ -53,14 +53,14 @@ class LossHistory(keras.callbacks.Callback):
         plt.xlabel('Epoch')
         plt.ylabel('loss')
         plt.title('A Loss Curve')
-        plt.legend(loc="uper right")
+        plt.legend(loc="upper right")
 
         plt.savefig(os.path.join(self.save_path, "epoch_loss_" + str(self.time_str) + ".png"))
 
         plt.cla()
         plt.close("all")
 
-class ExponentDecayScheduler(keras.ccallbacks.Callback):
+class ExponentDecayScheduler(keras.callbacks.Callback):
     def __init__(self, decay_rate, verbose = 0):
         super(ExponentDecayScheduler, self).__init__()
         self.decay_rate         = decay_rate

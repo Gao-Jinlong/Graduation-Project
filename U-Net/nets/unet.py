@@ -1,82 +1,74 @@
-from keras import layers  #创建层函数
-from keras.initializers import random_normal # 初始化函数
-from keras.models import *  # 模型处理算法
+from keras.initializers import random_normal
+from keras.layers import *
+from keras.models import *
 
-def Unet(input_shape=(512, 512, 3), num_classes = 21, backlone = "vgg"):
+from nets.vgg16 import VGG16
+from nets.resnet50 import ResNet50  # Residual Network 残差网络
+
+
+def Unet(input_shape=(512, 512, 3), num_classes = 21, backbone = "vgg"):
     inputs = Input(input_shape)
+    #-------------------------------#
+    #   获得五个有效特征层
+    #   feat1   512,512,64
+    #   feat2   256,256,128
+    #   feat3   128,128,256
+    #   feat4   64,64,512
+    #   feat5   32,32,512
+    #-------------------------------#
+    if backbone == "vgg":
+        feat1, feat2, feat3, feat4, feat5 = VGG16(inputs) 
+    elif backbone == "resnet50":
+        feat1, feat2, feat3, feat4, feat5 = ResNet50(inputs) 
+    else:
+        raise ValueError('Unsupported backbone - `{}`, Use vgg, resnet50.'.format(backbone))
+      
+    channels = [64, 128, 256, 512]
 
-    channels = [64, 128, 256, 512, 1024]
-    #----------------------#
-    #     主干提取网络     #
-    #----------------------#
-    # Block 1
-    # 512,512,3 -> 512,512,64
-    x = layers.Conv2D(channels[0], 3, activation='relu', padding='same', kernel_initializer=random_normal(stddev=0.02), name='block1_conv1')(inputs)
-    x = layers.Conv2D(channels[0], 3, activation='relu', padding='same', kernel_initializer=random_normal(stddev=0.02), name='block1_conv2')(x)
-    feat1 = x
-    # 512,512,64 -> 256,256,64
-    x = layers.MaxPooling2D((2, 2), strides=(2, 2), name='block1_pool')(x)
+    # 32, 32, 512 -> 64, 64, 512
+    P5_up = UpSampling2D(size=(2, 2))(feat5)
+    # 64, 64, 512 + 64, 64, 512 -> 64, 64, 1024
+    P4 = Concatenate(axis=3)([feat4, P5_up])
+    # 64, 64, 1024 -> 64, 64, 512
+    P4 = Conv2D(channels[3], 3, activation='relu', padding='same', kernel_initializer = random_normal(stddev=0.02))(P4)
+    P4 = Conv2D(channels[3], 3, activation='relu', padding='same', kernel_initializer = random_normal(stddev=0.02))(P4)
 
-    # Block 2
-    # 256,256,64 -> 256,256,128
-    x = layers.Conv2D(channels[1], 3, activation='relu', padding='same', kernel_initializer=random_normal(stddev=0.02), name='block2_conv1')(x)
-    x = layers.Conv2D(channels[1], 3, activation='relu', padding='same', kernel_initializer=random_normal(stddev=0.02), name='block2_conv2')(x)
-    feat2 = x
-    # 256,256,128 -> 128,128,128
-    x = layers.MaxPooling2D((2, 2), strides=(2, 2), name='block2_pool')(x)
+    # 64, 64, 512 -> 128, 128, 512
+    P4_up = UpSampling2D(size=(2, 2))(P4)
+    # 128, 128, 256 + 128, 128, 512 -> 128, 128, 768
+    P3 = Concatenate(axis=3)([feat3, P4_up])
+    # 128, 128, 768 -> 128, 128, 256
+    P3 = Conv2D(channels[2], 3, activation='relu', padding='same', kernel_initializer = random_normal(stddev=0.02))(P3)
+    P3 = Conv2D(channels[2], 3, activation='relu', padding='same', kernel_initializer = random_normal(stddev=0.02))(P3)
 
-    # Block 3
-    # 128,128,128 -> 128,128,256
-    x = layers.Conv2D(channels[2], 3, activation='relu', padding='same', kernel_initializer=random_normal(stddev=0.02), name='block3_conv1')(x)
-    x = layers.Conv2D(channels[2], 3, activation='relu', padding='same', kernel_initializer=random_normal(stddev=0.02), name='block3_conv2')(x)
-    feat3 = x
-    # 128,128,256 -> 64,64,256
-    x = layers.MaxPooling2D((2, 2), strides=(2, 2), name='block3_pool')(x)
+    # 128, 128, 256 -> 256, 256, 256
+    P3_up = UpSampling2D(size=(2, 2))(P3)
+    # 256, 256, 256 + 256, 256, 128 -> 256, 256, 384
+    P2 = Concatenate(axis=3)([feat2, P3_up])
+    # 256, 256, 384 -> 256, 256, 128
+    P2 = Conv2D(channels[1], 3, activation='relu', padding='same', kernel_initializer = random_normal(stddev=0.02))(P2)
+    P2 = Conv2D(channels[1], 3, activation='relu', padding='same', kernel_initializer = random_normal(stddev=0.02))(P2)
 
-    # Block 4
-    # 64,64,256 -> 64,64,512
-    x = layers.Conv2D(channels[3], 3, activation='relu', padding='same', kernel_initializer=random_normal(stddev=0.02), name='block4_conv1')(x)
-    x = layers.Conv2D(channels[3], 3, activation='relu', padding='same', kernel_initializer=random_normal(stddev=0.02), name='block4_conv2')(x)
-    feat4 = x
-    # 64,64,512 -> 32,32,512
-    x = layers.MaxPooling2D((2, 2), strides=(2, 2), name='block4_pool')(x)
+    # 256, 256, 128 -> 512, 512, 128
+    P2_up = UpSampling2D(size=(2, 2))(P2)
+    # 512, 512, 128 + 512, 512, 64 -> 512, 512, 192
+    P1 = Concatenate(axis=3)([feat1, P2_up])
+    # 512, 512, 192 -> 512, 512, 64
+    P1 = Conv2D(channels[0], 3, activation='relu', padding='same', kernel_initializer = random_normal(stddev=0.02))(P1) # stddev 生成随机值的标准差
+    P1 = Conv2D(channels[0], 3, activation='relu', padding='same', kernel_initializer = random_normal(stddev=0.02))(P1)
 
-    # Block 5
-    # 32,32,512 -> 32,32,512
-    x = layers.Conv2D(channels[4], 3, activation='relu', padding='same', kernel_initializer=random_normal(stddev=0.02), name='block5_conv1')(x)
-    x = layers.Conv2D(channels[4], 3, activation='relu', padding='same',kernel_initializer=random_normal(stddev=0.02), name='block5_conv2')(x)
-    feat5 = x
+    if backbone == "vgg":
+        # 512, 512, 64 -> 512, 512, num_classes
+        P1 = Conv2D(num_classes, 1, activation="softmax")(P1)
+    elif backbone == "resnet50":
+        ResNet50_up = UpSampling2D(size=(2, 2))(P1)
+        # 512, 512, 192 -> 512, 512, 64
+        ResNet50_up = Conv2D(channels[0], 3, activation='relu', padding='same', kernel_initializer = random_normal(stddev=0.02))(ResNet50_up)
+        ResNet50_up = Conv2D(channels[0], 3, activation='relu', padding='same', kernel_initializer = random_normal(stddev=0.02))(ResNet50_up)
 
-    # ----------------------#
-    #    加强特征提取网络   #
-    # ----------------------#
-    # UpConv 5
-    P5_up = layers.UpSampling2D(size=(2, 2))(feat5)
-    P5_up = layers.Conv2D(channels[3], 2, activation='relu', padding='same', kernel_initializer=random_normal(sttdev=0.02), name='UpConv5')(P5_up)
-
-    # UpConv 4
-    P4 = layers.Concatenate(axis=3)([feat4, P5_up])
-    P4 = layers.Conv2D(channels[3], 3, activation='relu', padding='same', kernel_initializer=random_normal(sttdev=0.02), name='Up4_conv1')(P4)
-    P4 = layers.Conv2D(channels[3], 3, activation='relu', padding='same', kernel_initializer=random_normal(sttdev=0.02), name='Up4_conv2')(P4)
-    P4_up = layers.UpSampling2D(size=(2, 2))(P4)
-
-    # UpConv 3
-    P3 = layers.Concatenate(axis=3)([feat3, P4_up])
-    P3 = layers.Conv2D(channels[2], 3, activation='relu', padding='name', kernel_initializer=random_normal(sttdev=0.02, name='p3_conv1'))(P3)
-    P3 = layers.Conv2D(channels[2], 3, activation='relu', padding='name', kernel_initializer=random_normal(sttdev=0.02, name='p3_conv2'))(P3)
-    P3_up = layers.UpSampling2D(size=(2, 2))(P3)
-
-    # UpConv 2
-    P2 = layers.Concatenate(axis=3)([feat2, P3_up])
-    P2 = layers.Conv2D(channels[1], 3, activation='relu', padding='name', kernel_initializer=random_normal(sttdev=0.02, name='p2_conv1'))(P2)
-    P2 = layers.Conv2D(channels[1], 3, activation='relu', padding='name', kernel_initializer=random_normal(sttdev=0.02, name='p2_conv2'))(P2)
-    P2_up = layers.UpSampling2D(size=(2, 2))(P2)
-
-    #UpConv 1
-    P1 = layers.Concatenate(axis=3)([feat1, P2_up])
-    P1 = layers.Conv2D(channels[0], 3, activation='relu', padding='name', kernel_initializer=random_normal(sttdev=0.02, name='p1_conv1'))(P1)
-    P1 = layers.Conv2D(channels[0], 3, activation='relu', padding='name', kernel_initializer=random_normal(sttdev=0.02, name='p1_conv2'))(P1)
-    P1 = layers.Conv2D(num_classes, 1, activation="softmax")(P1)
-
+        P1 = Conv2D(num_classes, 1, activation="softmax")(ResNet50_up)
+    else:
+        raise ValueError('Unsupported backbone - `{}`, Use vgg, resnet50.'.format(backbone))
+        
     model = Model(inputs=inputs, outputs=P1)
     return model

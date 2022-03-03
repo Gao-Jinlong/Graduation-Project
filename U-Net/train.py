@@ -2,13 +2,13 @@ import os
 
 import numpy as np
 from keras.callbacks import EarlyStopping, ModelCheckpoint, TensorBoard
-from keras.optimizers import adam_v2 as Adam
+from tensorflow.keras.optimizers import Adam
 
 from nets.unet import Unet
-from nets.unet_training import(CE, Focal_loss, dice_loss_with_CE, dice_loss_with_Focal_Loss)
+from nets.unet_training import(CE, Focal_Loss, dice_loss_with_CE, dice_loss_with_Focal_Loss)
 from utils.callbacks import ExponentDecayScheduler, LossHistory
 from utils.dataloader import UnetDataset
-from utils.utils_metrics import Iou_soure, f_score
+from utils.utils_metrics import Iou_score, f_score
 
 '''
 1.训练格式为VOC格式  需要 图片和标签
@@ -107,7 +107,7 @@ if __name__ == "__main__":
         model.load_weights(model_path, by_name=True, skip_mismatch=True)
 
     #  读取数据集对应的txt
-    with open(os.path.jion(VOCdevkit_path, "VOC2007/ImageSets/Segmentation/train.txt"),"r") as f:
+    with open(os.path.join(VOCdevkit_path, "VOC2007/ImageSets/Segmentation/train.txt"),"r") as f:
         train_lines = f.readlines()     #  读入每行数据
 
     with open(os.path.join(VOCdevkit_path, "VOC2007/ImageSets/Segmentation/val.txt"),"r") as f:
@@ -123,7 +123,7 @@ if __name__ == "__main__":
     logging         = TensorBoard(log_dir = 'logs/')
     checkpoint      = ModelCheckpoint('logs/ep{epoch:03d}-loss{loss:.3f}-val_loss{val_loss:.3f}.h5',
                                       monitor = 'val_loss', save_weights_only = True, save_best_only = False, period = 1)
-    reduce_lr       = ExponentDecySheduler(decay_rate = 0.96, verbose = 1)
+    reduce_lr       = ExponentDecayScheduler(decay_rate = 0.96, verbose = 1)
     early_stopping  = EarlyStopping(monitor='val_loss', min_delta=0, patience=10, verbose=1)
     loss_history    = LossHistory('logs/')
 
@@ -172,10 +172,12 @@ if __name__ == "__main__":
         if epoch_step == 0 or epoch_step_val == 0:
             raise ValueError("The DataSet is too less to train.")
 
-        model.compile(loss = loss, optimezer = Adam(lr = lr), metrics = [f_score()])    #  配置训练模型
+        model.compile(loss=loss,
+                      optimizer=Adam(learning_rate=lr),
+                      metrics=[f_score()])    #  配置训练模型
 
-        train_dataloader    = UnetDataset(train_lines, input_shape, batch_size, num_calsses, True, VOVdevkit_path)
-        val_dataloader    = UnetDataset(train_lines, input_shape, batch_size, num_calsses, False, VOVdevkit_path)
+        train_dataloader    = UnetDataset(train_lines, input_shape, batch_size, num_classes, True, VOCdevkit_path)
+        val_dataloader    = UnetDataset(train_lines, input_shape, batch_size, num_classes, False, VOCdevkit_path)
 
         print('Train on {} samples, val on {} samples, with batch size {}.'.format(len(train_lines), len(val_lines), batch_size))
         model.fit_generator(
@@ -185,7 +187,7 @@ if __name__ == "__main__":
             validation_steps    = epoch_step_val,
             epochs              = end_epoch,
             initial_epoch       = start_epoch,
-            use_multiproceesing = True if num_workers > 1 else False,
+            use_multiprocessing = True if num_workers > 1 else False,
             workers             = num_workers,
             callbacks           = [logging, checkpoint, reduce_lr, early_stopping, loss_history]
         )
