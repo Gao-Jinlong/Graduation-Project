@@ -45,7 +45,7 @@ if __name__ == "__main__":
     #-------------------------------#
     backbone = "vgg"
     #  加载预训练权重  model_path=''不加载
-    model_path      = "model_data/unet_vgg_voc.h5"
+    model_path      = "logs/ep010-loss0.831-val_loss0.616.h5"
     #  输入图片大小
     input_shape     = [512, 512]
     #--------------------------------------------------------------#
@@ -91,7 +91,7 @@ if __name__ == "__main__":
     #---------------------------------------------------------------------#
     cls_weights     = np.ones([num_classes], np.float32)
     #  是否进行冻结训练，默认先冻结主干训练后解冻训练
-    Freeze_Train    = True
+    Freeze_Train    = False
     # ---------------------------------------------------------------------#
     #   用于设置是否使用多线程读取数据，1代表关闭多线程
     #   开启后会加快数据读取速度，但是会占用更多内存
@@ -106,7 +106,7 @@ if __name__ == "__main__":
         #  获取预训练权重
         model.load_weights(model_path, by_name=True, skip_mismatch=True)
 
-    #  读取数据集对应的txt
+    #  读取数据集对应的txt _test为测试数据，删掉_test后缀读取完整数据集
     with open(os.path.join(VOCdevkit_path, "VOC2007/ImageSets/Segmentation/train.txt"),"r") as f:
         train_lines = f.readlines()     #  读入每行数据
 
