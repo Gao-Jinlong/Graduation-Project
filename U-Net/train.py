@@ -38,14 +38,14 @@ if __name__ == "__main__":
     #-------------------------------#
     #   需要的分类个数+1
     #-------------------------------#
-    num_classes     = 21
+    num_classes     = 2
     #-------------------------------#
     #   主干网络选择
     #   vgg、resnet50
     #-------------------------------#
     backbone = "vgg"
     #  加载预训练权重  model_path=''不加载
-    model_path      = "logs/ep009-loss0.735-val_loss0.508.h5"
+    model_path      = "model_data/Unet_vgg_voc_ep063-loss0.371-val_loss0.317.h5"
     #  输入图片大小
     input_shape     = [512, 512]
     #--------------------------------------------------------------#
@@ -58,20 +58,20 @@ if __name__ == "__main__":
     #  显存占用小，仅对网络进行微调
     #--------------------------------------------------------------#
     Init_Epoch          = 0
-    Freeze_Epoch        = 41
-    Freeze_batch_size   = 2
+    Freeze_Epoch        = 1
+    Freeze_batch_size   = 4
     Freeze_lr         = 1e-4
     #--------------------------------------------------------------#
     #  解冻阶段训练参数
     #  模型主干不被冻结，特征提取网络会发生改变
     #  显存占用大，网络所有参数都会发生改变
     #--------------------------------------------------------------#
-    UnFreeze_Epoch      = 100
-    Unfreeze_batch_size = 2
+    UnFreeze_Epoch      = 3
+    Unfreeze_batch_size = 4
     Unfreeze_lr         = 1e-5
 
     #  数据集路径
-    VOCdevkit_path = 'VOCdevkit'
+    VOCdevkit_path = 'E:/00_graduation project/DataSet/COCO'
 
     #--------------------------------------------------------------------------#
     #  建议选项：
@@ -106,11 +106,11 @@ if __name__ == "__main__":
         #  获取预训练权重
         model.load_weights(model_path, by_name=True, skip_mismatch=True)
 
-    #  读取数据集对应的txt _test为测试数据，删掉_test后缀读取完整数据集
-    with open(os.path.join(VOCdevkit_path, "VOC2007/ImageSets/Segmentation/train.txt"),"r") as f:
+    #  读取数据集对应的txt
+    with open(os.path.join(VOCdevkit_path, "voc/train2017.txt"),"r") as f:
         train_lines = f.readlines()     #  读入每行数据
 
-    with open(os.path.join(VOCdevkit_path, "VOC2007/ImageSets/Segmentation/val.txt"),"r") as f:
+    with open(os.path.join(VOCdevkit_path, "voc/val2017.txt"),"r") as f:
         val_lines = f.readlines()
 
     #-------------------------------------------------------------------------------#
@@ -175,9 +175,9 @@ if __name__ == "__main__":
         model.compile(loss=loss,
                       optimizer=Adam(learning_rate=lr),
                       metrics=[f_score()])    #  配置训练模型
-
-        train_dataloader    = UnetDataset(train_lines, input_shape, batch_size, num_classes, True, VOCdevkit_path)
-        val_dataloader    = UnetDataset(train_lines, input_shape, batch_size, num_classes, False, VOCdevkit_path)
+        # 加载数据集，修改路径注意此处
+        train_dataloader    = UnetDataset(train_lines, input_shape, batch_size, num_classes, True, VOCdevkit_path, "train2017")
+        val_dataloader    = UnetDataset(val_lines, input_shape, batch_size, num_classes, False, VOCdevkit_path, "val2017")
 
         print('Train on {} samples, val on {} samples, with batch size {}.'.format(len(train_lines), len(val_lines), batch_size))
         model.fit_generator(
