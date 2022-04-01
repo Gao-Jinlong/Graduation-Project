@@ -48,11 +48,11 @@ def VGG16(img_input):
                       padding='same',
                       kernel_initializer = random_normal(stddev=0.02), 
                       name='block3_conv2')(x)
-    # x = layers.Conv2D(256, (3, 3),
-    #                   activation='relu',
-    #                   padding='same',
-    #                   kernel_initializer = random_normal(stddev=0.02),
-    #                   name='block3_conv3')(x)
+    x = layers.Conv2D(256, (3, 3),
+                      activation='relu',
+                      padding='same',
+                      kernel_initializer = random_normal(stddev=0.02),
+                      name='block3_conv3')(x)
     feat3 = x
     # 128,128,256 -> 64,64,256
     x = layers.MaxPooling2D((2, 2), strides=(2, 2), name='block3_pool')(x)
@@ -69,11 +69,11 @@ def VGG16(img_input):
                       padding='same',
                       kernel_initializer = random_normal(stddev=0.02), 
                       name='block4_conv2')(x)
-    # x = layers.Conv2D(512, (3, 3),
-    #                   activation='relu',
-    #                   padding='same',
-    #                   kernel_initializer = random_normal(stddev=0.02),
-    #                   name='block4_conv3')(x)
+    x = layers.Conv2D(512, (3, 3),
+                      activation='relu',
+                      padding='same',
+                      kernel_initializer = random_normal(stddev=0.02),
+                      name='block4_conv3')(x)
     feat4 = x
     # 64,64,512 -> 32,32,512
     x = layers.MaxPooling2D((2, 2), strides=(2, 2), name='block4_pool')(x)
@@ -90,10 +90,10 @@ def VGG16(img_input):
                       padding='same',
                       kernel_initializer = random_normal(stddev=0.02), 
                       name='block5_conv2')(x)
-    # x = layers.Conv2D(512, (3, 3),
-    #                   activation='relu',
-    #                   padding='same',
-    #                   kernel_initializer = random_normal(stddev=0.02),
-    #                   name='block5_conv3')(x)
+    x = layers.Conv2D(512, (3, 3),
+                      activation='relu',
+                      padding='same',
+                      kernel_initializer = random_normal(stddev=0.02),
+                      name='block5_conv3')(x)
     feat5 = x
     return feat1, feat2, feat3, feat4, feat5
