@@ -399,7 +399,7 @@ if __name__ == '__main__':
     if torch.cuda.is_available():   # 转移到GPU （要在构建优化器前执行）
         modnet = modnet.cuda()
 
-    optimizer = torch.optim.SGD(modnet.parameters(), lr=LR, momentum=0.9)   # 随机梯度下降
+    optimizer = torch.optim.Adam(modnet.parameters(), lr=LR)   # 优化器
     lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=int(0.25 * EPOCHS), gamma=0.1)  # 随epoch衰减学习率
 
     # 数据加载对象
@@ -462,7 +462,7 @@ if __name__ == '__main__':
                 'optimizer_state_dict': optimizer.state_dict(),     # 保存优化器状态
                 'loss': {'semantic_loss': semantic_loss, 'detail_loss': detail_loss, 'matte_loss': matte_loss}, # 保存损失值
                 'val_loss': {'val_semantic_loss': val_semantic_loss, 'val_detail_loss': val_detail_loss, 'val_matte_loss': val_matte_loss},
-            }, f'../pretrained/modnet_custom_portrait_{epoch:2f}_th_loss_{matte_loss:.4f}_val_loss_{val_matte_loss:.4f}.ckpt')     # 文件保存路径
+            }, f'../pretrained/modnet_custom_portrait_{epoch:2d}_th_loss_{matte_loss:.4f}_val_loss_{val_matte_loss:.4f}.ckpt')     # 文件保存路径
             # 绘图
             plt.figure(figsize=(12, 9))
             plt.plot(illustration_data['s_loss'], 'r-p', label='s_loss')

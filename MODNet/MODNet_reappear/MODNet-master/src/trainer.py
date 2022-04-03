@@ -1,4 +1,6 @@
 import math
+import json
+import matplotlib.pyplot as plt
 import time
 import scipy    # 数值计算库
 import numpy as np
@@ -189,6 +191,61 @@ def supervised_training_iter(
     # for test
     return semantic_loss, detail_loss, matte_loss
 
+def val_iter(
+        modnet, image, trimap, gt_matte,
+        semantic_scale=10.0, detail_scale=10.0, matte_scale=1.0):
+
+    global blurer  # 全局化高斯卷积层
+
+    # set the model to train mode and clear the optimizer
+    # 启用训练模式，确保Batch Normalization 和 Dropout 层正常工作。 评价模型时用model.eval()
+    modnet.eval()  # 修改父类的self.training属性为False 某些类执行时会调用这个属性
+    # optimizer.zero_grad()  # 梯度归零
+
+    # forward the model
+    pred_semantic, pred_detail, pred_matte = modnet(image, False)
+
+    # calculate the boundary mask from the trimap
+    boundaries = (trimap < 0.5) + (trimap > 0.5)  # 只有 trimap = 0.5 即边缘才会被标记为False
+    ''' # 显示结果  边界部分为黑色 其余为白色
+    from PIL import Image
+    a = boundaries.cpu()
+    b = a[0][0]
+    b = b.numpy()
+    image2 = Image.fromarray(b)
+    image2.show()
+    exit()
+    '''
+    # calculate the semantic loss
+    gt_semantic = F.interpolate(gt_matte, scale_factor=1 / 16, mode='bilinear')  # 下采样 双线性插值
+    gt_semantic = blurer(gt_semantic)  # 高斯模糊 匹配预测蒙版
+    semantic_loss = torch.mean(F.mse_loss(pred_semantic, gt_semantic))  # 综合每个元素计算均方差后返回平均值
+    semantic_loss = semantic_scale * semantic_loss
+
+    # calculate the detail loss
+    # 融合boundaries为True的部分(前景+背景)返回trimap值(0)，False则返回pred_detail（预测边缘）值。即非边缘部分返回0 边缘部分返回预测值
+    pred_boundary_detail = torch.where(boundaries, trimap, pred_detail)  # attention 预测边界
+    gt_detail = torch.where(boundaries, trimap, gt_matte)  # attention 标注边界
+    detail_loss = torch.mean(F.l1_loss(pred_boundary_detail, gt_detail))  # 绝对值差异的平均值
+    detail_loss = detail_scale * detail_loss
+
+    # calculate the matte loss
+    pred_boundary_matte = torch.where(boundaries, trimap, pred_matte)  # 融合预测蒙版的边界
+    matte_l1_loss = F.l1_loss(pred_matte, gt_matte) + 4.0 * F.l1_loss(pred_boundary_matte, gt_matte)  # 蒙版综合损失
+    matte_compositional_loss = F.l1_loss(image * pred_matte, image * gt_matte) \
+                               + 4.0 * F.l1_loss(image * pred_boundary_matte, image * gt_matte)  # 合成图像综合损失
+    matte_loss = torch.mean(matte_l1_loss + matte_compositional_loss)
+    matte_loss = matte_scale * matte_loss
+    '''
+    # calculate the final loss, backward the loss, and update the model
+    loss = semantic_loss + detail_loss + matte_loss
+    loss.backward()
+    optimizer.step()  # 执行一次优化
+    '''
+    # for test
+    return semantic_loss, detail_loss, matte_loss
+
+
 
 def soc_adaptation_iter(
     modnet, backup_modnet, optimizer, image,
@@ -334,41 +391,108 @@ if __name__ == '__main__':
         ToTrainArray()
     ])
     # 数据集对象
-    mattingDataset = MattingDataset(transform=transform)
+    train_dataset = MattingDataset(data_type='train',transform=transform)
+    val_dataset = MattingDataset(data_type='val',transform=transform)
 
     modnet = torch.nn.DataParallel(MODNet())  # 多卡训练
     if torch.cuda.is_available():   # 转移到GPU （要在构建优化器前执行）
         modnet = modnet.cuda()
 
-    optimizer = torch.optim.SGD(modnet.parameters(), lr=LR, momentum=0.9)   # 随机梯度下降
+    optimizer = torch.optim.Adam(modnet.parameters(), lr=LR)   # 随机梯度下降
     lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=int(0.25 * EPOCHS), gamma=0.1)  # 随epoch衰减学习率
 
     # 数据加载对象
-    dataloader = DataLoader(mattingDataset,
+    train_data = DataLoader(train_dataset,
                             batch_size=BS,  # how many samples per batch to load
-                            shuffle=True)   # 乱序
+                            shuffle=True)  # 乱序
+    val_data = DataLoader(val_dataset,
+                          batch_size=BS,  # how many samples per batch to load
+                          shuffle=True)  # 乱序
+    # 损失记录
+    illustration_data = {
+        's_loss': [],
+        'd_loss': [],
+        'm_loss': [],
+        'v_s_loss': [],
+        'v_d_loss': [],
+        'v_m_loss': [],
+    }
     # 加载权重
-    modnet.load_state_dict(torch.load('./pretrained/modnet_custom_portrait_matting_last_epoch_weight_lr0.0002_epoch180.ckpt', map_location='cpu'))
+    # modnet.load_state_dict(torch.load('./pretrained/modnet_custom_portrait_matting_last_epoch_weight_lr0.0002_epoch180.ckpt', map_location='cpu'))
     for epoch in range(0, EPOCHS):  # 开始训练
-        print(f'epoch: {epoch}/{EPOCHS-1}')
-        for idx, (image, trimap, gt_matte) in enumerate(tqdm(dataloader)):    # 读入sample
+        print(f'epoch: {epoch}/{EPOCHS - 1}')
+        # train
+        for idx, (image, trimap, gt_matte) in enumerate(tqdm(train_data)):  # 读入sample
             semantic_loss, detail_loss, matte_loss = \
-                supervised_training_iter(modnet, optimizer, image, trimap, gt_matte,    # 调用训练迭代器
-                                    semantic_scale=SEMANTIC_SCALE,
-                                    detail_scale=DETAIL_SCALE,
-                                    matte_scale=MATTE_SCALE)
-        lr_scheduler.step()     # 缩小梯度
+                supervised_training_iter(modnet, optimizer, image, trimap, gt_matte,  # 调用训练迭代器
+                                         semantic_scale=SEMANTIC_SCALE,
+                                         detail_scale=DETAIL_SCALE,
+                                         matte_scale=MATTE_SCALE)
+
+        lr_scheduler.step()  # 缩小学习率
+        # val
+        with torch.no_grad():
+            for idx, (image, trimap, gt_matte) in enumerate(tqdm(val_data)):
+                val_semantic_loss, val_detail_loss, val_matte_loss = \
+                    val_iter(modnet, image, trimap, gt_matte,
+                             semantic_scale=SEMANTIC_SCALE,
+                             detail_scale=DETAIL_SCALE,
+                             matte_scale=MATTE_SCALE)
+
+        # 记录损失
+        illustration_data['s_loss'].append(float(f'{semantic_loss:.5f}'))
+        illustration_data['d_loss'].append(float(f'{detail_loss:.5f}'))
+        illustration_data['m_loss'].append(float(f'{matte_loss:.5f}'))
+        illustration_data['v_s_loss'].append(float(f'{val_semantic_loss:.5f}'))
+        illustration_data['v_d_loss'].append(float(f'{val_detail_loss:.5f}'))
+        illustration_data['v_m_loss'].append(float(f'{val_matte_loss:.5f}'))
+        with open('../pretrained/portrait_loss_data.json', 'w') as f:
+            json.dump(illustration_data, f)
 
         # 保存中间训练结果
         if epoch % SAVE_EPOCH_STEP == 0 and epoch > 1:  # 每一定阶段保存一次
             torch.save({
-                'epoch': epoch,
-                'model_state_dict': modnet.state_dict(),
-                'optimizer_state_dict': optimizer.state_dict(),
-                'loss': {'semantic_loss': semantic_loss, 'detail_loss': detail_loss, 'matte_loss': matte_loss},
-            }, f'pretrained/modnet_custom_portrait_matting_{epoch}_th.ckpt')
-        print(f'{len(mattingDataset)}/{len(mattingDataset)} --- '
-              f'semantic_loss: {semantic_loss:f}, detail_loss: {detail_loss:f}, matte_loss: {matte_loss:f}')
+                'epoch': epoch,  # 保存epoch值
+                'model_state_dict': modnet.state_dict(),  # 保存网络状态
+                'optimizer_state_dict': optimizer.state_dict(),  # 保存优化器状态
+                'loss': {'semantic_loss': semantic_loss, 'detail_loss': detail_loss, 'matte_loss': matte_loss},  # 保存损失值
+                'val_loss': {'val_semantic_loss': val_semantic_loss, 'val_detail_loss': val_detail_loss,
+                             'val_matte_loss': val_matte_loss},
+            },
+                f'../pretrained/portrait_modnet_custom_portrait_{epoch:2d}_th_loss_{matte_loss:.4f}_val_loss_{val_matte_loss:.4f}.ckpt')  # 文件保存路径
+            # 绘图
+            plt.figure(figsize=(12, 9))
+            plt.plot(illustration_data['s_loss'], 'r-p', label='s_loss')
+            plt.plot(illustration_data['d_loss'], 'g-p', label='d_loss')
+            plt.plot(illustration_data['m_loss'], 'b-p', label='m_loss')
+            plt.plot(illustration_data['v_s_loss'], 'r:p', label='v_s_loss')
+            plt.plot(illustration_data['v_d_loss'], 'g:p', label='v_d_loss')
+            plt.plot(illustration_data['v_m_loss'], 'b:p', label='v_m_loss')
+            plt.legend()
+            plt.xlabel('epoch')
+            plt.ylabel('loss')
+            plt.title('loss chart')
+            plt.savefig(f'../pretrained/portrait_loss_chart_{epoch:02d}.jpg')
+            plt.show()
+        print(f'\n{len(train_data)}/{len(train_data)} --- '
+              f'semantic_loss: {semantic_loss:f}, detail_loss: {detail_loss:f}, matte_loss: {matte_loss:f}\n'
+              f'val_semantic_loss:{val_semantic_loss:f},val_detail_loss: {val_detail_loss:f}, val_matte_loss: {val_matte_loss:f}\n')
 
+    # 绘图
+    plt.figure()
+    plt.figure(figsize=(12, 9))
+    plt.plot(illustration_data['s_loss'], 'r-p', label='s_loss')
+    plt.plot(illustration_data['d_loss'], 'g-p', label='d_loss')
+    plt.plot(illustration_data['m_loss'], 'b-p', label='m_loss')
+    plt.plot(illustration_data['v_s_loss'], 'r:p', label='v_s_loss')
+    plt.plot(illustration_data['v_d_loss'], 'g:p', label='v_d_loss')
+    plt.plot(illustration_data['v_m_loss'], 'b:p', label='v_m_loss')
+    plt.legend()
+    plt.xlabel('epoch')
+    plt.ylabel('loss')
+    plt.title('loss chart')
+    plt.savefig('../pretrained/portrait_loss_chart.jpg')
+    plt.show()
+    plt.close('all')
     # 仅保存模型权重参数
-    torch.save(modnet.state_dict(), f'pretrained/modnet_custom_portrait_matting_last_epoch_weight.ckpt')
+    torch.save(modnet.state_dict(), f'../pretrained/portrait_modnet_custom_portrait_matting_last_epoch_weight.ckpt')

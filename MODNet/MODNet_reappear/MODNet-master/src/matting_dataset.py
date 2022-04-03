@@ -11,28 +11,29 @@ from PIL import Image
 # 数据集加载类
 class MattingDataset(Dataset):
     def __init__(self,
-                 dataset_root_dir='datasets/PPM-100',
+                 dataset_root_dir='./datasets/PPM-100/',
+                 data_type='train',
                  transform=None):
-        image_path = dataset_root_dir + '/train/fg/*'
-        matte_path = dataset_root_dir + '/train/alpha/*'
-        image_file_name_list = glob(image_path)     # 全局搜索路径
-        matte_file_name_list = glob(matte_path)
-        self.image_file_name_list = sorted(image_file_name_list)    # 排序列表
-        self.matte_file_name_list = sorted(matte_file_name_list)
-        for img, mat in zip(self.image_file_name_list, self.matte_file_name_list):  # zip配对元组
-            img_name = img.split("\\")[-1]  # 截取文件名
-            mat_name = mat.split('\\')[-1]
-            assert img_name == mat_name
-
+        self.dataset_root_dir = dataset_root_dir
+        self.data_type = data_type
+        image_path = dataset_root_dir + data_type + '.txt'  # '_test.txt 读取调试demo'
+        img_lines = []
+        with open(image_path, "r") as f:
+            for line in f.readlines():
+                line = line.strip('\n')
+                line = line.split('/')[-1]
+                img_lines.append(line)  # 读入每行数据
+        f.close()
+        self.img_lines = img_lines
         self.transform = transform
 
     def __len__(self):
-        return len(self.image_file_name_list)
+        return len(self.img_lines)
 
     # 每次读取数据集元素时访问此方法
     def __getitem__(self, index):
-        image_file_name = self.image_file_name_list[index]
-        matte_file_name = self.matte_file_name_list[index]
+        image_file_name = self.dataset_root_dir + self.data_type + '/fg/' + self.img_lines[index]
+        matte_file_name = self.dataset_root_dir + self.data_type + '/alpha/' + self.img_lines[index]
 
         image = Image.open(image_file_name)
         matte = Image.open(matte_file_name)

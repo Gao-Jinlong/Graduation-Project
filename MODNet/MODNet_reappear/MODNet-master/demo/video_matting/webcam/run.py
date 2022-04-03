@@ -20,7 +20,7 @@ torch_transforms = transforms.Compose(
 print('Load pre-trained MODNet...')
 # abs_file = os.path.abspath(__file__)
 # print(os.path.join(abs_file))
-pretrained_ckpt = '../../../src/pretrained/modnet_custom_portrait_matting_last_epoch_weight.ckpt' # 自训练效果
+pretrained_ckpt = '../../../pretrained/modnet_custom_portrait_matting_last_epoch_weight.ckpt' # 自训练效果
 # pretrained_ckpt = '../../../../../MODNet-master/MODNet-master/pretrained/modnet_webcam_portrait_matting.ckpt' # 官网效果
 modnet = MODNet(backbone_pretrained=False)
 modnet = nn.DataParallel(modnet)
