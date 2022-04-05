@@ -45,7 +45,7 @@ if __name__ == "__main__":
     #-------------------------------#
     backbone = "vgg"
     #  加载预训练权重  model_path=''不加载
-    model_path      = "logs/ep013-loss0.299-val_loss0.337.h5"
+    model_path      = ""
     #  输入图片大小
     input_shape     = [512, 512]
     #--------------------------------------------------------------#
@@ -182,8 +182,8 @@ if __name__ == "__main__":
                       optimizer=Adam(learning_rate=lr),
                       metrics=[f_score()])    #  配置训练模型
 
-        train_dataloader    = UnetDataset(train_lines, input_shape, batch_size, num_classes, True, VOCdevkit_path)
-        val_dataloader    = UnetDataset(train_lines, input_shape, batch_size, num_classes, False, VOCdevkit_path)
+        train_dataloader    = UnetDataset(train_lines, input_shape, batch_size, num_classes, True, VOCdevkit_path,)
+        val_dataloader    = UnetDataset(val_lines, input_shape, batch_size, num_classes, False, VOCdevkit_path,)
 
         print('Train on {} samples, val on {} samples, with batch size {}.'.format(len(train_lines), len(val_lines), batch_size))
         model.fit_generator(

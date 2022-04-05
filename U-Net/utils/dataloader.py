@@ -12,7 +12,7 @@ from utils.utils import cvtColor, preprocess_input
 
 
 class UnetDataset(Sequence):
-    def __init__(self, annotation_lines, input_shape, batch_size, num_classes, train, dataset_path, data_type):
+    def __init__(self, annotation_lines, input_shape, batch_size, num_classes, train, dataset_path, ):
         self.annotation_lines = annotation_lines
         self.length = len(self.annotation_lines)
         self.input_shape = input_shape
@@ -20,7 +20,7 @@ class UnetDataset(Sequence):
         self.num_classes = num_classes
         self.train = train
         self.dataset_path = dataset_path
-        self.data_type = data_type
+        # self.data_type = data_type
 
     def __len__(self):
         return math.ceil(len(self.annotation_lines) / float(self.batch_size))
@@ -34,8 +34,8 @@ class UnetDataset(Sequence):
             # -------------------------------#
             #   从文件中读取图像
             # -------------------------------#
-            jpg = Image.open(os.path.join(os.path.join(self.dataset_path, self.data_type), name + ".jpg"))
-            png = Image.open(os.path.join(os.path.join(self.dataset_path, f"voc/{self.data_type}"), name + ".png"))
+            jpg = Image.open(os.path.join(os.path.join(self.dataset_path, 'images'), name + ".jpg"))
+            png = Image.open(os.path.join(os.path.join(self.dataset_path, "labels"), name + ".png"))
             # -------------------------------#
             #   数据增强
             # -------------------------------#

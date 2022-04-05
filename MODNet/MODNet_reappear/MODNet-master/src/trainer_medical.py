@@ -370,8 +370,8 @@ def soc_adaptation_iter(
     return soc_semantic_loss, soc_detail_loss
 
 # ----------------------------------------------------------------------------------
-
-
+#       主干网络采用mobilenet_v2 注意训练自己的domain时关掉主干网络的权重加载
+# ----------------------------------------------------------------------------------
 if __name__ == '__main__':
     from matting_dataset_medical import MattingDataset, Rescale, \
         ToTensor, Normalize, ToTrainArray, \
@@ -379,7 +379,7 @@ if __name__ == '__main__':
     from torchvision import transforms
     from torch.utils.data import DataLoader
     from models.modnet import MODNet
-    from setting import BS, LR, EPOCHS, SEMANTIC_SCALE, DETAIL_SCALE, MATTE_SCALE, SAVE_EPOCH_STEP
+    from setting_medical import BS, LR, EPOCHS, SEMANTIC_SCALE, DETAIL_SCALE, MATTE_SCALE, SAVE_EPOCH_STEP
 
     # 图像变换
     transform = transforms.Compose([
@@ -422,27 +422,34 @@ if __name__ == '__main__':
         'v_d_loss': [],
         'v_m_loss': [],
     }
-    # 加载权重
-    # modnet.load_state_dict(torch.load('../pretrained/modnet_custom_portrait_matting_last_epoch_weight_epoch60.ckpt', map_location='cpu'))
+#-----------------------------------------------------------------------
+#       加载权重
+#-----------------------------------------------------------------------
+    # modnet.load_state_dict(torch.load('../pretrained/medical_modnet_custom_last_epoch_weight_04_05_20_36_49.ckpt', map_location='cpu'))
     for epoch in range(0, EPOCHS):  # 开始训练
+        t = time.localtime()  # 获取时间戳
         print(f'epoch: {epoch}/{EPOCHS-1}')
         # train
-        for idx, (image, trimap, gt_matte) in enumerate(tqdm(train_data)):    # 读入sample
+        bar = tqdm(train_data)
+        for idx, (image, trimap, gt_matte) in enumerate(bar):    # 读入sample
             semantic_loss, detail_loss, matte_loss = \
                 supervised_training_iter(modnet, optimizer, image, trimap, gt_matte,    # 调用训练迭代器
                                     semantic_scale=SEMANTIC_SCALE,
                                     detail_scale=DETAIL_SCALE,
                                     matte_scale=MATTE_SCALE)
+            bar.set_postfix({'s_loss':f'{semantic_loss:.5f}', 'd_loss':f'{detail_loss:.5f}', 'm_loss':f'{matte_loss:.5f}'})
 
         lr_scheduler.step()     # 缩小学习率
         # val
         with torch.no_grad():
-            for idx, (image, trimap, gt_matte) in enumerate(tqdm(val_data)):
+            v_bar = tqdm(val_data)
+            for idx, (image, trimap, gt_matte) in enumerate(v_bar):
                 val_semantic_loss, val_detail_loss, val_matte_loss = \
                     val_iter(modnet, image, trimap, gt_matte,
                              semantic_scale=SEMANTIC_SCALE,
                              detail_scale=DETAIL_SCALE,
                              matte_scale=MATTE_SCALE)
+                v_bar.set_postfix({'s_loss':f'{val_semantic_loss:.5f}', 'd_loss':f'{val_detail_loss:.5f}', 'm_loss':f'{val_matte_loss:.5f}'})
 
         # 记录损失
         illustration_data['s_loss'].append(float(f'{semantic_loss:.5f}'))
@@ -451,18 +458,21 @@ if __name__ == '__main__':
         illustration_data['v_s_loss'].append(float(f'{val_semantic_loss:.5f}'))
         illustration_data['v_d_loss'].append(float(f'{val_detail_loss:.5f}'))
         illustration_data['v_m_loss'].append(float(f'{val_matte_loss:.5f}'))
-        with open('../pretrained/loss_data.json', 'w') as f:
+# ----------------------------------save-------------------------------------------------------
+        with open(f'../pretrained/loss_data_{t.tm_mon:02d}_{t.tm_mday:02d}_{t.tm_hour:02d}_{t.tm_min:02d}_{t.tm_sec:02d}.json', 'w') as f:
             json.dump(illustration_data,f)
 
         # 保存中间训练结果
         if epoch % SAVE_EPOCH_STEP == 0 and epoch > 1:  # 每一定阶段保存一次
+            t = time.localtime()    # 更新时间戳
+# ----------------------------------save-------------------------------------------------------
             torch.save({
                 'epoch': epoch,     # 保存epoch值
                 'model_state_dict': modnet.state_dict(),    # 保存网络状态
                 'optimizer_state_dict': optimizer.state_dict(),     # 保存优化器状态
                 'loss': {'semantic_loss': semantic_loss, 'detail_loss': detail_loss, 'matte_loss': matte_loss}, # 保存损失值
                 'val_loss': {'val_semantic_loss': val_semantic_loss, 'val_detail_loss': val_detail_loss, 'val_matte_loss': val_matte_loss},
-            }, f'../pretrained/modnet_custom_portrait_{epoch:2d}_th_loss_{matte_loss:.4f}_val_loss_{val_matte_loss:.4f}.ckpt')     # 文件保存路径
+            }, f'../pretrained/medical_modnet_custom_{epoch:2d}_th_loss_{matte_loss:.4f}_val_loss_{val_matte_loss:.4f}_{t.tm_mon:02d}_{t.tm_mday:02d}_{t.tm_hour:02d}_{t.tm_min:02d}_{t.tm_sec:02d}.ckpt')     # 文件保存路径
             # 绘图
             plt.figure(figsize=(12, 9))
             plt.plot(illustration_data['s_loss'], 'r-p', label='s_loss')
@@ -475,12 +485,14 @@ if __name__ == '__main__':
             plt.xlabel('epoch')
             plt.ylabel('loss')
             plt.title('loss chart')
-            plt.savefig(f'../pretrained/loss_chart_{epoch:02d}.jpg')
+# ----------------------------------save-------------------------------------------------------
+            plt.savefig(f'../pretrained/medical_loss_chart_{epoch:02d}_{t.tm_mon:02d}_{t.tm_mday:02d}_{t.tm_hour:02d}_{t.tm_min:02d}_{t.tm_sec:02d}.jpg')
             plt.show()
         print(f'\n{len(train_data)}/{len(train_data)} --- '
               f'semantic_loss: {semantic_loss:f}, detail_loss: {detail_loss:f}, matte_loss: {matte_loss:f}\n'
               f'val_semantic_loss:{val_semantic_loss:f},val_detail_loss: {val_detail_loss:f}, val_matte_loss: {val_matte_loss:f}\n')
 
+    t = time.localtime()  # 更新时间戳
     # 绘图
     plt.figure()
     plt.figure(figsize=(12, 9))
@@ -494,9 +506,11 @@ if __name__ == '__main__':
     plt.xlabel('epoch')
     plt.ylabel('loss')
     plt.title('loss chart')
-    plt.savefig('../pretrained/loss_chart.jpg')
+#----------------------------------save-------------------------------------------------------
+    plt.savefig(f'../pretrained/medical_loss_chart_{t.tm_mon:02d}_{t.tm_mday:02d}_{t.tm_hour:02d}_{t.tm_min:02d}_{t.tm_sec:02d}.jpg')
     plt.show()
     plt.close('all')
 
     # 仅保存模型权重参数
-    torch.save(modnet.state_dict(), f'../pretrained/modnet_custom_portrait_matting_last_epoch_weight.ckpt')
+# ----------------------------------save-------------------------------------------------------
+    torch.save(modnet.state_dict(), f'../pretrained/medical_modnet_custom_last_epoch{epoch:02d}_weight_{t.tm_mon:02d}_{t.tm_mday:02d}_{t.tm_hour:02d}_{t.tm_min:02d}_{t.tm_sec:02d}.ckpt')

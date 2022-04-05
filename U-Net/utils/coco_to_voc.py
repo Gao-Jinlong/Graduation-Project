@@ -1,13 +1,14 @@
 from pycocotools.coco import COCO
 import numpy as np
+from tqdm import tqdm
 import matplotlib.pyplot as plt
 import cv2 as cv
 
 # =======================================
 # =======================================
-obj_class = 1
+obj_class = 255
 dataDir='E:/00_graduation project/DataSet/COCO/' # 数据集根目录
-dataType='train2017' # 选择图像类型
+dataType='val2017' # 选择图像类型
 annFile='{}2017_Train_Val_annotations/instances_{}.json'.format(dataDir,dataType) # annotation路径
 
 # 蒙版绘制函数
@@ -68,7 +69,7 @@ imgIds = coco.getImgIds(catIds=catIds) # 获取包含指定类别id的图像id
 txt = open(dataDir + 'voc/'+ dataType + '.txt', "w") # 创建txt记录转换的图片id
 print("transforming...")
 count = 0
-for i in imgIds:
+for i in tqdm(imgIds):
     img = coco.loadImgs(i)[0] # 获取第一个图像的json
     # load and display image
     I = cv.imread('%s/%s/%s' % (dataDir, dataType, img['file_name']))  # 从本地加载图像

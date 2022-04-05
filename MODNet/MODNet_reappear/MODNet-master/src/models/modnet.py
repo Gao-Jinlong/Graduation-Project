@@ -204,8 +204,10 @@ class FusionBranch(nn.Module):
 class MODNet(nn.Module):
     """ Architecture of MODNet
     """
-
-    def __init__(self, in_channels=3, hr_channels=32, backbone_arch='mobilenetv2', backbone_pretrained=True):
+#=========================================================
+#   在其他domain训练时不要加载预训练参数
+#=========================================================
+    def __init__(self, in_channels=3, hr_channels=32, backbone_arch='mobilenetv2', backbone_pretrained=False):
         super(MODNet, self).__init__()
 
         self.in_channels = in_channels

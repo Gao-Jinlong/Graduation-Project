@@ -11,17 +11,17 @@ from PIL import Image
 # 数据集加载类
 class MattingDataset(Dataset):
     def __init__(self,
-                 dataset_root_dir='./datasets/PPM-100/',
-                 data_type='train',
+                 dataset_root_dir='../../../../../../DataSet/COCO/',
+                 data_type='train2017',
                  transform=None):
         self.dataset_root_dir = dataset_root_dir
         self.data_type = data_type
-        image_path = dataset_root_dir + data_type + '.txt'  # '_test.txt 读取调试demo'
+        image_path = dataset_root_dir + 'voc/'+ data_type + '.txt'  # '_test.txt 读取调试demo'
         img_lines = []
         with open(image_path, "r") as f:
             for line in f.readlines():
                 line = line.strip('\n')
-                line = line.split('/')[-1]
+                # line = line.split('/')[-1]
                 img_lines.append(line)  # 读入每行数据
         f.close()
         self.img_lines = img_lines
@@ -32,11 +32,13 @@ class MattingDataset(Dataset):
 
     # 每次读取数据集元素时访问此方法
     def __getitem__(self, index):
-        image_file_name = self.dataset_root_dir + self.data_type + '/fg/' + self.img_lines[index]
-        matte_file_name = self.dataset_root_dir + self.data_type + '/alpha/' + self.img_lines[index]
+        image_file_name = self.dataset_root_dir + self.data_type + '/' + self.img_lines[index] + '.jpg'
+        matte_file_name = self.dataset_root_dir + 'voc/' + self.data_type + '/' + self.img_lines[index] + '.png'
 
         image = Image.open(image_file_name)
+        image = image.convert('RGB')
         matte = Image.open(matte_file_name)
+        matte = matte.convert('L')  # 蒙版转灰度
 
         data = {'image': image, 'gt_matte': matte}
 

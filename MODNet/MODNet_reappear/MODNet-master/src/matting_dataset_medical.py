@@ -12,7 +12,7 @@ import os
 # 数据集加载类
 class MattingDataset(Dataset):
     def __init__(self,
-                 dataset_root_dir='../datasets/medical_data_set/',
+                 dataset_root_dir='E:/00_graduation project/DataSet/isic2017/ISIC-Archive-Downloader-master/Data/',
                  data_type='train',
                  transform=None):
         self.dataset_root_dir = dataset_root_dir
@@ -32,8 +32,8 @@ class MattingDataset(Dataset):
 
     # 每次读取数据集元素时访问此方法
     def __getitem__(self, index):
-        image_file_name = self.dataset_root_dir + 'images/' + self.img_lines[index] + '.jpg'
-        matte_file_name = self.dataset_root_dir + 'labels/' + self.img_lines[index] + '.jpg'
+        image_file_name = self.dataset_root_dir + 'Images/' + self.img_lines[index] + '.jpeg'
+        matte_file_name = self.dataset_root_dir + 'Segmentation/' + self.img_lines[index] + '.png'
 
         image = Image.open(image_file_name)
         matte = Image.open(matte_file_name)

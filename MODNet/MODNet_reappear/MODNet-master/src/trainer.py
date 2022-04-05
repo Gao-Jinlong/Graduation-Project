@@ -198,7 +198,6 @@ def val_iter(
     global blurer  # 全局化高斯卷积层
 
     # set the model to train mode and clear the optimizer
-    # 启用训练模式，确保Batch Normalization 和 Dropout 层正常工作。 评价模型时用model.eval()
     modnet.eval()  # 修改父类的self.training属性为False 某些类执行时会调用这个属性
     # optimizer.zero_grad()  # 梯度归零
 
@@ -207,15 +206,7 @@ def val_iter(
 
     # calculate the boundary mask from the trimap
     boundaries = (trimap < 0.5) + (trimap > 0.5)  # 只有 trimap = 0.5 即边缘才会被标记为False
-    ''' # 显示结果  边界部分为黑色 其余为白色
-    from PIL import Image
-    a = boundaries.cpu()
-    b = a[0][0]
-    b = b.numpy()
-    image2 = Image.fromarray(b)
-    image2.show()
-    exit()
-    '''
+
     # calculate the semantic loss
     gt_semantic = F.interpolate(gt_matte, scale_factor=1 / 16, mode='bilinear')  # 下采样 双线性插值
     gt_semantic = blurer(gt_semantic)  # 高斯模糊 匹配预测蒙版
@@ -236,12 +227,7 @@ def val_iter(
                                + 4.0 * F.l1_loss(image * pred_boundary_matte, image * gt_matte)  # 合成图像综合损失
     matte_loss = torch.mean(matte_l1_loss + matte_compositional_loss)
     matte_loss = matte_scale * matte_loss
-    '''
-    # calculate the final loss, backward the loss, and update the model
-    loss = semantic_loss + detail_loss + matte_loss
-    loss.backward()
-    optimizer.step()  # 执行一次优化
-    '''
+
     # for test
     return semantic_loss, detail_loss, matte_loss
 
@@ -391,8 +377,8 @@ if __name__ == '__main__':
         ToTrainArray()
     ])
     # 数据集对象
-    train_dataset = MattingDataset(data_type='train',transform=transform)
-    val_dataset = MattingDataset(data_type='val',transform=transform)
+    train_dataset = MattingDataset(data_type='train2017',transform=transform)
+    val_dataset = MattingDataset(data_type='val2017',transform=transform)
 
     modnet = torch.nn.DataParallel(MODNet())  # 多卡训练
     if torch.cuda.is_available():   # 转移到GPU （要在构建优化器前执行）
@@ -413,7 +399,7 @@ if __name__ == '__main__':
         's_loss': [],
         'd_loss': [],
         'm_loss': [],
-        'v_s_loss': [],
+        'v_s_loss': [],-9
         'v_d_loss': [],
         'v_m_loss': [],
     }
@@ -459,7 +445,7 @@ if __name__ == '__main__':
                 'val_loss': {'val_semantic_loss': val_semantic_loss, 'val_detail_loss': val_detail_loss,
                              'val_matte_loss': val_matte_loss},
             },
-                f'../pretrained/portrait_modnet_custom_portrait_{epoch:2d}_th_loss_{matte_loss:.4f}_val_loss_{val_matte_loss:.4f}.ckpt')  # 文件保存路径
+                f'../pretrained/people_modnet_custom_portrait_{epoch:2d}_th_loss_{matte_loss:.4f}_val_loss_{val_matte_loss:.4f}.ckpt')  # 文件保存路径
             # 绘图
             plt.figure(figsize=(12, 9))
             plt.plot(illustration_data['s_loss'], 'r-p', label='s_loss')
@@ -472,7 +458,7 @@ if __name__ == '__main__':
             plt.xlabel('epoch')
             plt.ylabel('loss')
             plt.title('loss chart')
-            plt.savefig(f'../pretrained/portrait_loss_chart_{epoch:02d}.jpg')
+            plt.savefig(f'../pretrained/people_loss_chart_{epoch:02d}.jpg')
             plt.show()
         print(f'\n{len(train_data)}/{len(train_data)} --- '
               f'semantic_loss: {semantic_loss:f}, detail_loss: {detail_loss:f}, matte_loss: {matte_loss:f}\n'
@@ -495,4 +481,4 @@ if __name__ == '__main__':
     plt.show()
     plt.close('all')
     # 仅保存模型权重参数
-    torch.save(modnet.state_dict(), f'../pretrained/portrait_modnet_custom_portrait_matting_last_epoch_weight.ckpt')
+    torch.save(modnet.state_dict(), f'../pretrained/people_modnet_custom_portrait_matting_last_epoch_weight.ckpt')
