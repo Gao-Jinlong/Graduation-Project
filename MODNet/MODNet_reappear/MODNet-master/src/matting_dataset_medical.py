@@ -38,6 +38,9 @@ class MattingDataset(Dataset):
         image = Image.open(image_file_name)
         matte = Image.open(matte_file_name)
 
+        # image.show()
+        # matte.show()
+
         data = {'image': image, 'gt_matte': matte}
 
         # 根据传入列表 变换图像
@@ -47,6 +50,13 @@ class MattingDataset(Dataset):
             # 经过各种变换后
             # data = {'image': image, 'trimap': trimap, 'gt_matte': gt_matte}
             #--------------------------------------------------------------------------
+        # 显示图像
+        # a = data[2].cpu().detach().numpy()
+        # b = a[0]
+        # # b = b.numpy() * 255
+        # b = b * 255
+        # image2 = Image.fromarray(b)
+        # image2.show()
         return data
 
 # resize
@@ -131,7 +141,7 @@ class Normalize(object):
         image = image.type(torch.FloatTensor)
         image = F.normalize(image, self.mean, self.std, self.inplace)
         sample['image'] = image
-        sample['gt_matte'] = sample['gt_matte'] / 255
+        sample['gt_matte'] = sample['gt_matte']
         return sample
 
 # 规整结构

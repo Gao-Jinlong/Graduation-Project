@@ -45,13 +45,17 @@ if __name__ == '__main__':
     # create MODNet and load the pre-trained ckpt
     modnet = MODNet(backbone_pretrained=False)
     modnet = nn.DataParallel(modnet)
-
+#===================================================================
+#   加载权重
+#===================================================================
     if torch.cuda.is_available():
         modnet = modnet.cuda()
         weights = torch.load(args.ckpt_path)
     else:
         weights = torch.load(args.ckpt_path, map_location=torch.device('cpu'))
-    modnet.load_state_dict(weights)
+    # modnet.load_state_dict(weights)
+    # modnet.load_state_dict(weights['model_state_dict'])   # 中间保存结果需要抽取权重
+    modnet.load_state_dict(weights)   # 中间保存结果需要抽取权重
     modnet.eval()
 
     # inference images
@@ -96,9 +100,19 @@ if __name__ == '__main__':
         im = F.interpolate(im, size=(im_rh, im_rw), mode='area')
 
         # inference
-        _, _, matte = modnet(im.cuda() if torch.cuda.is_available() else im, True)
+        a, a, matte = modnet(im.cuda() if torch.cuda.is_available() else im, True)  # 此处的True为不需要返回 pred_semantic
 
         # resize and save matte
+        # matte = F.interpolate(matte, size=(im_h, im_w), mode='area')
+        # matte = matte[0][0].data.cpu().numpy()
+
+
+        # pred_semantic = F.interpolate(pred_semantic, size=(im_h, im_w), mode='area')
+        # pred_semantic = pred_semantic[0][0].data.cpu().numpy()
+        # pred_semantic_name = im_name.split('.')[0] + '.png'
+        # Image.fromarray(((pred_semantic * 255).astype('uint8')), mode='L').save(os.path.join(args.output_path, pred_semantic_name))
+
+
         matte = F.interpolate(matte, size=(im_h, im_w), mode='area')
         matte = matte[0][0].data.cpu().numpy()
         matte_name = im_name.split('.')[0] + '.png'

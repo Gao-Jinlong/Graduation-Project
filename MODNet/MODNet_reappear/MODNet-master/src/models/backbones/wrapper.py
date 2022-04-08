@@ -73,7 +73,7 @@ class MobileNetV2Backbone(BaseBackbone):
 
     def load_pretrained_ckpt(self):
         # the pre-trained model is provided by https://github.com/thuyngch/Human-Segmentation-PyTorch 
-        ckpt_path = '../pretrained/mobilenetv2_human_seg.ckpt'
+        ckpt_path = ''
         if not os.path.exists(ckpt_path):
             print('cannot find the pretrained mobilenetv2 backbone')
             exit()

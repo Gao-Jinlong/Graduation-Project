@@ -1,5 +1,7 @@
 """ This file is adapted from https://github.com/thuyngch/Human-Segmentation-PyTorch"""
-
+'''
+	此文件是原始的mobilinet，仅用来搭建mobilinet网络结构，具体参数传递通过warpper.py
+'''
 import math
 import json
 from functools import reduce
@@ -96,19 +98,28 @@ class MobileNetV2(nn.Module):
 		last_channel = 1280
 		interverted_residual_setting = [
 			# t, c, n, s
-			[1        , 16, 1, 1],
-			[expansion, 24, 2, 2],
-			[expansion, 32, 3, 2],
-			[expansion, 64, 4, 2],
-			[expansion, 96, 3, 1],
-			[expansion, 160, 3, 2],
-			[expansion, 320, 1, 1],
+			[1        , 16, 1, 1],			# features[1]			256 ---> 256
+			[expansion, 24, 2, 2],			# features[2-3]			256 ---> 128
+			[expansion, 32, 3, 2],			# features[4-6]			128 ---> 64
+			[expansion, 64, 4, 2],			# features[7-10]		 64 ---> 32
+			[expansion, 96, 3, 1],			# features[11-13]		 32 ---> 32
+			[expansion, 160, 3, 2],			# features[14-16]		 32 ---> 16
+			[expansion, 320, 1, 1],			# features[17]			 16 ---> 16
+
+			# [1        , 16, 1, 1],			# features[1]			512 ---> 512	IR		32 > 16
+			# [expansion, 24, 2, 2],			# features[2-3]			512 ---> 256	IR		16 > 96 > 24 > 144 > 24
+			# [expansion, 32, 3, 1],			# features[4-6]			256 ---> 256	IR		24 > 144 > 32 > 192 > 32
+			# [expansion, 64, 4, 2],			# features[7-10]		256 ---> 128	IR		32 > 192 > 64 > 384 > 64
+			# [expansion, 96, 3, 1],			# features[11-13]		128 ---> 128	IR		64 > 384 > 96 > 576 > 96
+			# [expansion, 160, 3, 2],			# features[14-16]		128 ---> 64		IR		96 > 576 > 160 > 960 > 160
+			# [expansion, 320, 1, 1],			# features[17]			 64 ---> 64		IR		160 > 960 > 960 > 320
 		]
 
 		# building first layer
 		input_channel = _make_divisible(input_channel*alpha, 8)
 		self.last_channel = _make_divisible(last_channel*alpha, 8) if alpha > 1.0 else last_channel
-		self.features = [conv_bn(self.in_channels, input_channel, 2)]
+		self.features = [conv_bn(self.in_channels, input_channel, 2)]		# features[0]		512 ---> 256
+		# self.features = [conv_bn(self.in_channels, input_channel, 1)]		# features[0]		512 ---> 256		3 > 32
 
 		# building inverted residual blocks
 		for t, c, n, s in interverted_residual_setting:
@@ -121,10 +132,12 @@ class MobileNetV2(nn.Module):
 				input_channel = output_channel
 
 		# building last several layers
-		self.features.append(conv_1x1_bn(input_channel, self.last_channel))
+		self.features.append(conv_1x1_bn(input_channel, self.last_channel))		# features[18]
+		# self.features.append(conv_1x1_bn(input_channel, self.last_channel))		# features[18]		dw		320 > 1280
 
 		# make it nn.Sequential
 		self.features = nn.Sequential(*self.features)
+		# print(self.features)	# 输出主干网络结构
 
 		# building classifier
 		if self.num_classes is not None:
@@ -166,22 +179,22 @@ class MobileNetV2(nn.Module):
 		if self.num_classes is not None:
 			x = x.mean(dim=(2,3))
 			x = self.classifier(x)
-			
+
 		# Output
 		return x
 
-	def _load_pretrained_model(self, pretrained_file):
-		pretrain_dict = torch.load(pretrained_file, map_location='cpu')
-		model_dict = {}
-		state_dict = self.state_dict()
-		print("[MobileNetV2] Loading pretrained model...")
-		for k, v in pretrain_dict.items():
-			if k in state_dict:
-				model_dict[k] = v
-			else:
-				print(k, "is ignored")
-		state_dict.update(model_dict)
-		self.load_state_dict(state_dict)
+	# def _load_pretrained_model(self, pretrained_file):
+	# 	pretrain_dict = torch.load(pretrained_file, map_location='cpu')
+	# 	model_dict = {}
+	# 	state_dict = self.state_dict()
+	# 	print("[MobileNetV2] Loading pretrained model...")
+	# 	for k, v in pretrain_dict.items():
+	# 		if k in state_dict:
+	# 			model_dict[k] = v
+	# 		else:
+	# 			print(k, "is ignored")
+	# 	state_dict.update(model_dict)
+	# 	self.load_state_dict(state_dict)
 
 	def _init_weights(self):
 		for m in self.modules():

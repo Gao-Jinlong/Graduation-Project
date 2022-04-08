@@ -22,7 +22,7 @@ torch_transforms = transforms.Compose(
 
 def matting(video, result, alpha_matte=False, fps=30):
     # video capture
-    vc = cv2.VideoCapture(0)
+    vc = cv2.VideoCapture(video)
 
     if vc.isOpened():
         rval, frame = vc.read()
@@ -83,7 +83,7 @@ def matting(video, result, alpha_matte=False, fps=30):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--video', type=str, required=True, help='input video file')
-    parser.add_argument('--result-type', type=str, default='fg', choices=['fg', 'matte'], 
+    parser.add_argument('--result-type', type=str, default='matte', choices=['fg', 'matte'],
                         help='matte - save the alpha matte; fg - save the foreground')
     parser.add_argument('--fps', type=int, default=30, help='fps of the result video')
 
@@ -95,8 +95,7 @@ if __name__ == '__main__':
         exit()
 
     print('Load pre-trained MODNet...')
-    print(os.getcwd())
-    pretrained_ckpt = '../../../src/pretrained/modnet_custom_portrait_matting_last_epoch_weight.ckpt'
+    pretrained_ckpt = '../../../pretrained/portrait_modnet_custom_portrait_matting_last_epoch_weight.ckpt'
     modnet = MODNet(backbone_pretrained=False)
     modnet = nn.DataParallel(modnet)
 
