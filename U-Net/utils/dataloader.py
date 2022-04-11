@@ -34,8 +34,8 @@ class UnetDataset(Sequence):
             # -------------------------------#
             #   从文件中读取图像
             # -------------------------------#
-            jpg = Image.open(os.path.join(os.path.join(self.dataset_path, 'images'), name + ".jpg"))
-            png = Image.open(os.path.join(os.path.join(self.dataset_path, "labels"), name + ".png"))
+            jpg = Image.open(os.path.join(os.path.join(self.dataset_path, 'Images'), name + ".jpeg"))
+            png = Image.open(os.path.join(os.path.join(self.dataset_path, "Segmentation"), name + ".png"))
             # -------------------------------#
             #   数据增强
             # -------------------------------#

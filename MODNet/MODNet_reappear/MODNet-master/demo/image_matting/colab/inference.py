@@ -1,5 +1,6 @@
 import os
 import sys
+import time
 import argparse
 import numpy as np
 from PIL import Image
@@ -54,18 +55,21 @@ if __name__ == '__main__':
     else:
         weights = torch.load(args.ckpt_path, map_location=torch.device('cpu'))
     # modnet.load_state_dict(weights)
-    # modnet.load_state_dict(weights['model_state_dict'])   # 中间保存结果需要抽取权重
-    modnet.load_state_dict(weights)   # 中间保存结果需要抽取权重
+    modnet.load_state_dict(weights['model_state_dict'])   # 中间保存结果需要抽取权重
+    # modnet.load_state_dict(weights)   # 中间保存结果需要抽取权重
     modnet.eval()
 
     # inference images
     im_names = os.listdir(args.input_path)
+    fps = 0.0
     for im_name in im_names:
         print('Process image: {0}'.format(im_name))
 
+
         # read image
         im = Image.open(os.path.join(args.input_path, im_name))
-
+        source = im # 备份
+        t1 = time.time()
         # unify image channels to 3
         im = np.asarray(im)
         if len(im.shape) == 2:
@@ -115,5 +119,15 @@ if __name__ == '__main__':
 
         matte = F.interpolate(matte, size=(im_h, im_w), mode='area')
         matte = matte[0][0].data.cpu().numpy()
+        # source = np.asarray(source)
+        # out = np.zeros_like(source)
+        #
+        # out[:,:, 0] = source[:,:, 0] * matte
+        # out[:,:, 1] = source[:,:, 1] * matte
+        # out[:,:, 2] = source[:,:, 2] * matte
+        # fps  = 1./(time.time()-t1)
+        # print("fps= %.2f"%(fps))
+
         matte_name = im_name.split('.')[0] + '.png'
         Image.fromarray(((matte * 255).astype('uint8')), mode='L').save(os.path.join(args.output_path, matte_name))
+        # Image.fromarray((out.astype('uint8'))).save(os.path.join(args.output_path, matte_name))

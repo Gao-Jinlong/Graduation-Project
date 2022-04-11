@@ -43,9 +43,9 @@ if __name__ == "__main__":
     #   主干网络选择
     #   vgg、resnet50
     #-------------------------------#
-    backbone = "vgg"
+    backbone = "resnet50"
     #  加载预训练权重  model_path=''不加载
-    model_path      = ""
+    model_path      = "logs/ep020-loss0.050.pth"
     #  输入图片大小
     input_shape     = [512, 512]
     #--------------------------------------------------------------#
@@ -77,7 +77,7 @@ if __name__ == "__main__":
     #   |-- train.txt   训练集
     #   |-- val.txt     验证集
     # -----------------------------------------------------------#
-    VOCdevkit_path = 'data_set/medical_data_set'
+    VOCdevkit_path = 'E:/00_graduation project/DataSet/isic2017/ISIC-Archive-Downloader-master/Data'
 
     #--------------------------------------------------------------------------#
     #  建议选项：
