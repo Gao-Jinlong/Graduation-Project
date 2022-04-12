@@ -4,9 +4,9 @@ import numpy as np
 from tqdm import tqdm
 
 if __name__ == '__main__':
-    eval_path = './img/eval/'
+    eval_path = './eval/'
     label_dir = 'label'
-    pre_dir = 'MODNet_pre'
+    pre_dir = 'UNet_resnet_pre'
 
     label_list = os.listdir(os.path.join(eval_path,label_dir))
     pre_list = os.listdir(os.path.join(eval_path,pre_dir))
