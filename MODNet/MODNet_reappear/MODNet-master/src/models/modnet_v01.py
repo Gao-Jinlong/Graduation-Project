@@ -34,13 +34,13 @@ class Conv2dIBNormRelu(nn.Module):
     """
 
     def __init__(self, in_channels, out_channels, kernel_size, 
-                 stride=1, padding=0, dilation=1, groups=1, bias=True, 
+                 stride=1, padding=0, dilation=1, groups=1, bias=True,
                  with_ibn=True, with_relu=True):
         super(Conv2dIBNormRelu, self).__init__()
 
         layers = [
             nn.Conv2d(in_channels, out_channels, kernel_size, 
-                      stride=stride, padding=padding, dilation=dilation, 
+                      stride=stride, padding=padding, dilation=dilation,
                       groups=groups, bias=bias)     # 通过groups = in_channels 可以实现深度可分离卷积
         ]
 
@@ -95,8 +95,8 @@ class LRBranch(nn.Module):
         enc_channels = backbone.enc_channels    # 主干网络各阶段通道数  [16, 24, 32, 96, 1280]
         self.backbone = backbone
         self.se_block = SEBlock(enc_channels[4], enc_channels[4], reduction=4)  # 增强通道间联系
-        self.conv_lr16x = Conv2dIBNormRelu(enc_channels[4], enc_channels[3], 5, stride=1, padding=2)    # 5*5空洞卷积 缩减通道数
-        self.conv_lr8x = Conv2dIBNormRelu(enc_channels[3], enc_channels[2], 5, stride=1, padding=2)      # 5*5空洞卷积 缩减通道数
+        self.conv_lr16x = Conv2dIBNormRelu(enc_channels[4], enc_channels[3], 5, stride=1, padding=2, dilation=1, groups=32)    # 5*5空洞卷积 缩减通道数
+        self.conv_lr8x = Conv2dIBNormRelu(enc_channels[3], enc_channels[2], 5, stride=1, padding=2, dilation=1, groups=32)      # 5*5空洞卷积 缩减通道数
         self.conv_lr = Conv2dIBNormRelu(enc_channels[2], 1, kernel_size=3, stride=2, padding=1, with_ibn=False, with_relu=False)    # 压缩为单通道
 
     def forward(self, img, inference):
@@ -112,19 +112,18 @@ class LRBranch(nn.Module):
         #   e-ASPP  efficiency - Atrous Spatial Pyramid Pooling 高效空间金字塔空洞卷积
         # ================================================================================
         enc32x = self.se_block(enc32x)  # 增强第五阶段结果通道间的联系
+        # print(enc32x.size())
         lr16x = F.interpolate(enc32x, scale_factor=2, mode='bilinear', align_corners=False) # 扩展数据量
+        # print(lr16x.size())
         lr16x = self.conv_lr16x(lr16x)
+        # print(lr16x.size())
         lr8x = F.interpolate(lr16x, scale_factor=2, mode='bilinear', align_corners=False)
         lr8x = self.conv_lr8x(lr8x)
-
-#==============================================================================================
-        # # 可视化中间结果
-        # # tensor ---> numpy ---> Image.show()
+        # tensor ---> numpy ---> Image.show()
         # from PIL import Image
-        # pred_semantic = enc32x[0][0].data.cpu().numpy()
-        # # print(pred_semantic)
+        # pred_semantic = pred_semantic[0][0].data.cpu().numpy()
         # Image.fromarray(((pred_semantic * 255).astype('uint8')), mode='L').show()
-#==============================================================================================
+
         # 获取pred_semantic结果
         pred_semantic = None
         if not inference:   # 非预测时
@@ -145,6 +144,7 @@ class HRBranch(nn.Module):
     """
     # hr_channels = 32      enc_channels = [16, 24, 32, 96, 1280]
     def __init__(self, hr_channels, enc_channels):
+        groups=8
         super(HRBranch, self).__init__()
         # 通道数中的+3 是拼接了原图的RGB通道
         # 卷积 16 ---> 32
@@ -153,20 +153,20 @@ class HRBranch(nn.Module):
 
         # 24 ---> 36
         self.tohr_enc4x = Conv2dIBNormRelu(enc_channels[1], hr_channels, 1, stride=1, padding=0)        # 升维
-        self.conv_enc4x = Conv2dIBNormRelu(2 * hr_channels, 2 * hr_channels, 3, stride=1, padding=1)    # 卷积
+        self.conv_enc4x = Conv2dIBNormRelu(2 * hr_channels, 2 * hr_channels, 3, stride=1, padding=1, groups=groups)    # 卷积
 
         # 通道数的倍数取决于拼接的层数
         self.conv_hr4x = nn.Sequential(
             Conv2dIBNormRelu(3 * hr_channels + 3, 2 * hr_channels, 3, stride=1, padding=1),
-            Conv2dIBNormRelu(2 * hr_channels, 2 * hr_channels, 3, stride=1, padding=1),
-            Conv2dIBNormRelu(2 * hr_channels, hr_channels, 3, stride=1, padding=1),
+            Conv2dIBNormRelu(2 * hr_channels, 2 * hr_channels, 3, stride=1, padding=1, groups=groups),
+            Conv2dIBNormRelu(2 * hr_channels, hr_channels, 3, stride=1, padding=1, groups=groups),
         )
         # 64 ---> 32
         self.conv_hr2x = nn.Sequential(
-            Conv2dIBNormRelu(2 * hr_channels, 2 * hr_channels, 3, stride=1, padding=1),
-            Conv2dIBNormRelu(2 * hr_channels, hr_channels, 3, stride=1, padding=1),
-            Conv2dIBNormRelu(hr_channels, hr_channels, 3, stride=1, padding=1),
-            Conv2dIBNormRelu(hr_channels, hr_channels, 3, stride=1, padding=1),
+            Conv2dIBNormRelu(2 * hr_channels, 2 * hr_channels, 3, stride=1, padding=1, groups=groups),
+            Conv2dIBNormRelu(2 * hr_channels, hr_channels, 3, stride=1, padding=1, groups=groups),
+            Conv2dIBNormRelu(hr_channels, hr_channels, 3, stride=1, padding=1, groups=groups),
+            Conv2dIBNormRelu(hr_channels, hr_channels, 3, stride=1, padding=1, groups=groups),
         )
 
         self.conv_hr = nn.Sequential(
@@ -180,13 +180,13 @@ class HRBranch(nn.Module):
 
         # 将semantic分支传递来的第二个特征层上采样拼接到当前分支
         enc2x = self.tohr_enc2x(enc2x)
-        hr4x = self.conv_enc2x(torch.cat((img, enc2x), dim=1))      # 512
+        hr4x = self.conv_enc2x(torch.cat((img2x, enc2x), dim=1))
         # 将semantic分支传递来的第三个特征层上采样拼接到当前分支
         enc4x = self.tohr_enc4x(enc4x)
         hr4x = self.conv_enc4x(torch.cat((hr4x, enc4x), dim=1))
         # 将semantic分支的预测结果上采样结果和原图1/4拼接到当前分支
         lr4x = F.interpolate(lr8x, scale_factor=2, mode='bilinear', align_corners=False)
-        hr4x = self.conv_hr4x(torch.cat((hr4x, lr8x, img2x), dim=1))
+        hr4x = self.conv_hr4x(torch.cat((hr4x, lr4x, img4x), dim=1))
         # 还原size将semantic分支传递来的第二个特征层上采样拼接到当前分支并卷积
         hr2x = F.interpolate(hr4x, scale_factor=2, mode='bilinear', align_corners=False)
         hr2x = self.conv_hr2x(torch.cat((hr2x, enc2x), dim=1))
@@ -194,10 +194,10 @@ class HRBranch(nn.Module):
         # 为训练返回detail的预测
         pred_detail = None
         if not inference:
-            hr = self.conv_hr(torch.cat((hr2x, img), dim=1))  # Skip Link
-            # hr2x = F.interpolate(hr2x, scale_factor=2, mode='bilinear', align_corners=False)  # 还原size
+            hr = F.interpolate(hr2x, scale_factor=2, mode='bilinear', align_corners=False)  # 还原size
+            hr = self.conv_hr(torch.cat((hr, img), dim=1))  # Skip Link
             pred_detail = torch.sigmoid(hr)     # 激活
-        # print(f'hr2x.size() = {hr2x.size()}')
+
         return pred_detail, hr2x
 
 
@@ -220,10 +220,10 @@ class FusionBranch(nn.Module):
         lr4x = F.interpolate(lr8x, scale_factor=2, mode='bilinear', align_corners=False)    # 上采样
         lr4x = self.conv_lr4x(lr4x) # 卷积 统一通道数
         lr2x = F.interpolate(lr4x, scale_factor=2, mode='bilinear', align_corners=False)    # 上采样
-        # print(lr2x.size(), hr2x.size())
-        f2x = self.conv_f2x(torch.cat((lr4x, hr2x), dim=1)) # 拼接LR与HR并卷积
-        f = F.interpolate(f2x, scale_factor=1/2, mode='bilinear', align_corners=False)    # 下采样
-        f = self.conv_f(torch.cat((f2x, img), dim=1)) # 拼接f和原图 卷积
+
+        f2x = self.conv_f2x(torch.cat((lr2x, hr2x), dim=1)) # 拼接LR与HR并卷积
+        f = F.interpolate(f2x, scale_factor=2, mode='bilinear', align_corners=False)    # 上采样
+        f = self.conv_f(torch.cat((f, img), dim=1)) # 拼接f和原图 卷积
         pred_matte = torch.sigmoid(f)   # 激活
 
         return pred_matte   # 返回预测
@@ -267,7 +267,6 @@ class MODNet(nn.Module):
             self.backbone.load_pretrained_ckpt()    # 再wrapper中设置预训练模型路径
 
     def forward(self, img, inference):
-        # print(img.size())     # torch.Size[1, 3, 512, 512]    [batch channels height width]
         pred_semantic, lr8x, [enc2x, enc4x] = self.lr_branch(img, inference)    # 低分辨率语义分割分支
         pred_detail, hr2x = self.hr_branch(img, enc2x, enc4x, lr8x, inference)  # 高分辨率细节处理分支
         pred_matte = self.f_branch(img, lr8x, hr2x)                             # 融合分支

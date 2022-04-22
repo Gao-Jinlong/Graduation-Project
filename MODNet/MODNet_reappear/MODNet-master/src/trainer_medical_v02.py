@@ -175,7 +175,8 @@ def supervised_training_iter(
     '''
     # calculate the semantic loss
     gt_semantic = F.interpolate(gt_matte, scale_factor=1/16, mode='bilinear')   # 下采样 双线性插值
-    gt_semantic = blurer(gt_semantic)   # 高斯模糊 匹配预测蒙版
+    # gt_semantic = blurer(gt_semantic)   # 高斯模糊 匹配预测蒙版
+    # 去掉高斯模糊对比结果
     semantic_loss = torch.mean(F.mse_loss(pred_semantic, gt_semantic))  # 综合每个元素计算均方差后返回平均值
     semantic_loss = semantic_scale * semantic_loss
 

@@ -12,6 +12,9 @@ import torchvision.transforms as transforms
 
 from src.models.modnet import MODNet
 
+''' 调试参数
+--input-path ../../../../../../unet-pytorch-main/eval/input --output-path ../../../../../../unet-pytorch-main/eval/MODNet_v02 --ckpt-path ../../../pretrained/medical_modnet_custom_06_th_loss_0.3925_val_loss_0.8614_04_13_20_12_53.ckpt
+'''
 
 if __name__ == '__main__':
     # define cmd arguments
@@ -62,6 +65,7 @@ if __name__ == '__main__':
     # inference images
     im_names = os.listdir(args.input_path)
     fps = 0.0
+
     for im_name in im_names:
         print('Process image: {0}'.format(im_name))
 
@@ -98,7 +102,7 @@ if __name__ == '__main__':
         else:
             im_rh = im_h
             im_rw = im_w
-        
+
         im_rw = im_rw - im_rw % 32
         im_rh = im_rh - im_rh % 32
         im = F.interpolate(im, size=(im_rh, im_rw), mode='area')
@@ -119,15 +123,15 @@ if __name__ == '__main__':
 
         matte = F.interpolate(matte, size=(im_h, im_w), mode='area')
         matte = matte[0][0].data.cpu().numpy()
-        # source = np.asarray(source)
-        # out = np.zeros_like(source)
-        #
-        # out[:,:, 0] = source[:,:, 0] * matte
-        # out[:,:, 1] = source[:,:, 1] * matte
-        # out[:,:, 2] = source[:,:, 2] * matte
-        # fps  = 1./(time.time()-t1)
-        # print("fps= %.2f"%(fps))
+        source = np.asarray(source)
+        out = np.zeros_like(source)
+
+        out[:,:, 0] = source[:,:, 0] * matte
+        out[:,:, 1] = source[:,:, 1] * matte
+        out[:,:, 2] = source[:,:, 2] * matte
+        fps  = 1./(time.time()-t1)
+        print("fps= %.2f"%(fps))
 
         matte_name = im_name.split('.')[0] + '.png'
-        Image.fromarray(((matte * 255).astype('uint8')), mode='L').save(os.path.join(args.output_path, matte_name))
-        # Image.fromarray((out.astype('uint8'))).save(os.path.join(args.output_path, matte_name))
+        # Image.fromarray(((matte * 255).astype('uint8')), mode='L').save(os.path.join(args.output_path, matte_name))
+        Image.fromarray((out.astype('uint8'))).save(os.path.join(args.output_path, matte_name))

@@ -4,9 +4,9 @@ import numpy as np
 from tqdm import tqdm
 
 if __name__ == '__main__':
-    eval_path = './eval/'
+    eval_path = './'
     label_dir = 'label'
-    pre_dir = 'UNet_resnet_pre'
+    pre_dir = 'UNet_pre'
 
     label_list = os.listdir(os.path.join(eval_path,label_dir))
     pre_list = os.listdir(os.path.join(eval_path,pre_dir))
@@ -37,9 +37,13 @@ if __name__ == '__main__':
         t = t/255   # 归一化
         p = p/255
 
-        intersection = np.logical_and(t, p)
-        union = np.logical_or(t, p)
-        iou = np.sum(intersection) / np.sum(union)
+        intersection = (t * p).sum()
+        # intersection = np.logical_and(t, p)
+        union = t.sum() + p.sum() - intersection
+        # union = np.logical_or(t, p)
+        iou = intersection/union
+        # iou = np.sum(intersection) / np.sum(union)
+        print(iou)
         sum_iou = (sum_iou + iou)
         avg_iou = sum_iou/count
         count += 1
