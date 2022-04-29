@@ -5,8 +5,8 @@ from tqdm import tqdm
 
 if __name__ == '__main__':
     eval_path = './'
-    label_dir = 'label'
-    pre_dir = 'UNet_pre'
+    label_dir = 'GroundTruth'
+    pre_dir = 'MODNet_isic_v04'
 
     label_list = os.listdir(os.path.join(eval_path,label_dir))
     pre_list = os.listdir(os.path.join(eval_path,pre_dir))
@@ -26,7 +26,7 @@ if __name__ == '__main__':
     sum_iou = 0
     bar = tqdm(zip(label_list,pre_list))
     for label, pre in bar:
-        if label.split('.')[0] != pre.split('.')[0]:
+        if label.split('_')[1] != pre.split('_')[1].split('.')[0]:
             exit('标签与预测结果匹配错误！')
         t = Image.open(os.path.join(eval_path,label_dir,label))
         p = Image.open(os.path.join(eval_path,pre_dir,pre))
@@ -43,7 +43,7 @@ if __name__ == '__main__':
         # union = np.logical_or(t, p)
         iou = intersection/union
         # iou = np.sum(intersection) / np.sum(union)
-        print(iou)
+
         sum_iou = (sum_iou + iou)
         avg_iou = sum_iou/count
         count += 1
