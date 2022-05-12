@@ -91,7 +91,7 @@ def get_random_data(image, label, input_shape, jitter=.3, hue=.1, sat=1.5, val=1
     return image, label
 
 # 增加倍数
-times = 10
+times = 30
 
 if __name__ =='__main__':
     dataset_root_dir = 'E:/00_graduation project/DataSet/isic2017'

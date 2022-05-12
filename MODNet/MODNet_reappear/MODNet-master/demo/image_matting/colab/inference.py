@@ -29,8 +29,9 @@ if __name__ == '__main__':
         print('Cannot find input path: {0}'.format(args.input_path))
         exit()
     if not os.path.exists(args.output_path):
+        os.makedirs(args.output_path)
         print('Cannot find output path: {0}'.format(args.output_path))
-        exit()
+
     if not os.path.exists(args.ckpt_path):
         print('Cannot find ckpt path: {0}'.format(args.ckpt_path))
         exit()

@@ -10,7 +10,7 @@ from PIL import Image
 import os
 
 # 数据集加载类
-times = 10  # 增强数据集
+times = 30  # 增强数据集
 class MattingDataset(Dataset):
     def __init__(self,
                  dataset_root_dir='E:/00_graduation project/DataSet/isic2017/Augmentation/',
